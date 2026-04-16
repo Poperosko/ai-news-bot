@@ -1,0 +1,30 @@
+# Environment variables — NEVER commit these
+.env
+.env.local
+.env.*.local
+
+# Google Service Account key — contains private credentials
+google-service-account.json
+*-service-account.json
+service-account-*.json
+
+# n8n local data (if self-hosted)
+.n8n/
+n8n-data/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Node modules (if any scripts are added)
+node_modules/
