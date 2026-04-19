@@ -1,0 +1,1638 @@
+{
+  "name": "news_bot",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1040,
+        48
+      ],
+      "id": "828a783b-9243-4ec4-a440-24efccd6000f",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://www.technologyreview.com/feed/",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -608,
+        352
+      ],
+      "id": "d52faad7-0d4c-4758-a756-aa0453b5887f",
+      "name": "RSS Read"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "openai/gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "OPENAI/GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Ты редактор новостного Telegram-канала. Отвечай только валидным JSON, без пояснений. Язык ответа: русский, кроме image_prompt.\n\nНовость:\nЗаголовок: {{ $json.title }}\nОписание: {{ $json.contentSnippet }}\n\nВерни JSON:\n{\"score\": 8, \"title\": \"перевод на русский\", \"summary\": \"пересказ 4-5 предложений\", \"link\": \"{{ $json.link }}\", \"image_prompt\": \"конкретная сцена на английском, реалистичный стиль\"}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -384,
+        352
+      ],
+      "id": "3d432f6f-2ca7-4489-80f4-49fd5cf42360",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "e9bi5ABEfGoCDXzy",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const raw = item.json.output[0].content[0].text;\n  const cleanedRaw = raw\n    .trim()\n    .replace(/^```json\\s*/i, '')\n    .replace(/^```\\s*/i, '')\n    .replace(/\\s*```$/i, '');\n\n  try {\n    const parsed = JSON.parse(cleanedRaw);\n    results.push({\n      json: {\n        score:        Number(parsed.score),\n        summary:      parsed.summary,\n        title:        parsed.title,\n        link:         parsed.link,\n        image_prompt: parsed.image_prompt,\n      }\n    });\n  } catch (error) {\n    results.push({ json: { error: `Failed to parse JSON: ${error.message}` } });\n  }\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        352
+      ],
+      "id": "f2e5b78c-95e5-4704-b4f7-ec96ed97b3ea",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        1376,
+        208
+      ],
+      "id": "86d621e0-6d73-4df2-b190-e65dd47536c9",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4157137d-a760-4886-808f-6938785f3447",
+              "name": "post",
+              "value": "={{ \"🔥\" + $('Code in JavaScript1').item.json.title + '\\n\\n' + \"📌\"  + $('Code in JavaScript1').item.json.summary + '\\n\\n#AI #технологии' }}",
+              "type": "string"
+            },
+            {
+              "id": "69e0cf1d-1abb-4af7-a525-a170a04fc951",
+              "name": "link",
+              "value": "={{ $('Code in JavaScript').item.json.link }}",
+              "type": "string"
+            },
+            {
+              "id": "f6faa4a9-7a02-4dc9-9307-64302b1af193",
+              "name": "photo_url",
+              "value": "={{ $if($('HTTP Request1').isExecuted, $('HTTP Request1').item.json.data[0].url, '') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1520,
+        352
+      ],
+      "id": "21f61f5a-e559-4e31-9209-d41fda65efc2",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "-1003773861169",
+        "file": "={{ $json.Photo_url }}",
+        "additionalFields": {
+          "caption": "={{ $json.post }}"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1984,
+        64
+      ],
+      "id": "dc95a671-8fb5-4f73-9992-8e270438460a",
+      "name": "Send a photo message",
+      "webhookId": "a26a0492-c069-4428-bcc7-d02c441115d6",
+      "credentials": {
+        "telegramApi": {
+          "id": "DA1GwNilCuv2sRoY",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1n93_bTCxIpHVaMGJKyuQBvZcwP3JRpfh3TdTi5xr_sI",
+          "mode": "list",
+          "cachedResultName": "Dublication",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1n93_bTCxIpHVaMGJKyuQBvZcwP3JRpfh3TdTi5xr_sI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Лист1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1n93_bTCxIpHVaMGJKyuQBvZcwP3JRpfh3TdTi5xr_sI/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Link": "={{ $('Edit Fields2').item.json.link.trim() }}",
+            "category": "Crypto"
+          },
+          "matchingColumns": [
+            "Link"
+          ],
+          "schema": [
+            {
+              "id": "Link",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "count",
+              "displayName": "count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2208,
+        64
+      ],
+      "id": "5b8170a3-7a7b-421a-a4ad-72fe5a3de2ec",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleApi": {
+          "id": "AyNYWjdpYiNI4Y8Y",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1n93_bTCxIpHVaMGJKyuQBvZcwP3JRpfh3TdTi5xr_sI/values/Лист1!A:A",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        416,
+        352
+      ],
+      "id": "56cc48bb-fd18-4486-9a24-eef27e3ed643",
+      "name": "HTTP Request",
+      "executeOnce": true,
+      "credentials": {
+        "googleApi": {
+          "id": "AyNYWjdpYiNI4Y8Y",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const sheetsValues = $input.first().json.values || [];\n\nconst publishedUrls = new Set(\n  sheetsValues.slice(1).map(row => row[0]).filter(v => !!v)\n);\n\nconst articles = $('Filter_AI').all().map(i => i.json);\nconst newArticles = articles.filter(a => !publishedUrls.has(a.url || a.link));\n\nif (!newArticles.length) return [];\n\nconst best = newArticles.reduce((top, a) =>\n  (a.score || 0) > (top.score || 0) ? a : top\n);\n\nconst rows = sheetsValues.slice(1).filter(row => row[1] === 'AI').length;\nconst generateImage = rows > 0 && rows % 3 === 0;\nconst enclosureUrl = $('RSS Read').first().json.enclosure?.url || '';\n\nreturn [{ json: { ...best, generateImage, photo_url: enclosureUrl, debug_rows: rows } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        352
+      ],
+      "id": "824e6b1b-0823-4c6f-981f-fbcbd31b100c",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://polza.ai/api/v1/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"google/gemini-2.5-flash-image\",\n  \"input\": {\n    \"prompt\": \"{{ $json.image_prompt }}\",\n    \"aspect_ratio\": \"16:9\",\n    \"quality\": \"basic\",\n    \"max_images\": 1,\n    \"n\": 1,\n    \"output_format\": \"png\"\n  },\n  \"async\": false\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1104,
+        208
+      ],
+      "id": "d91c5e3d-5cd8-4fb3-93b7-c659c5d1852d",
+      "name": "HTTP Request1",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "YzpV7jmgNC8Mhtvt",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://www.theverge.com/rss/index.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -608,
+        -272
+      ],
+      "id": "19ebb131-67d6-4e44-b4ec-a550dc6a3189",
+      "name": "RSS Read1"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "openai/gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "OPENAI/GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Ты редактор новостного Telegram-канала. Отвечай только валидным JSON, без пояснений. Язык ответа: русский, кроме image_prompt.\n\nНовость:\nЗаголовок: {{ $json.title }}\nОписание: {{ $json.contentSnippet }}\n\nВерни JSON:\n{\"score\": 8, \"title\": \"перевод на русский\", \"summary\": \"пересказ 4-5 предложений\", \"link\": \"{{ $json.link }}\", \"image_prompt\": \"конкретная сцена на английском, реалистичный стиль\"}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -384,
+        -272
+      ],
+      "id": "ac4e0aa5-8603-485a-8292-5ee8755f10f0",
+      "name": "Message a model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "e9bi5ABEfGoCDXzy",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const raw = item.json.output[0].content[0].text;\n  const cleanedRaw = raw\n    .trim()\n    .replace(/^```json\\s*/i, '')\n    .replace(/^```\\s*/i, '')\n    .replace(/\\s*```$/i, '');\n\n  try {\n    const parsed = JSON.parse(cleanedRaw);\n    results.push({\n      json: {\n        score:        Number(parsed.score),\n        summary:      parsed.summary,\n        title:        parsed.title,\n        link:         parsed.link,\n        image_prompt: parsed.image_prompt,\n      }\n    });\n  } catch (error) {\n    results.push({ json: { error: `Failed to parse JSON: ${error.message}` } });\n  }\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        -272
+      ],
+      "id": "25d6669a-fa04-4be6-8922-35ea87728bd6",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        1312,
+        -352
+      ],
+      "id": "bfa4a7c1-552c-4d0a-99d1-c0a389bfdb1f",
+      "name": "Limit1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4157137d-a760-4886-808f-6938785f3447",
+              "name": "post",
+              "value": "={{ \"🔥\" + $('Code in JavaScript3').item.json.title + '\\n\\n' + \"💾\"  + $('Code in JavaScript3').item.json.summary + '\\n\\n#IT #технологии' }}",
+              "type": "string"
+            },
+            {
+              "id": "d3d1cee5-fee6-4eac-85ec-ceb64da3b7f8",
+              "name": "Photo_url",
+              "value": "={{ $if($('HTTP Request3').isExecuted, $('HTTP Request3').item.json.data[0].url, $('Code in JavaScript3').item.json.photo_url ?? '') }}",
+              "type": "string"
+            },
+            {
+              "id": "69e0cf1d-1abb-4af7-a525-a170a04fc951",
+              "name": "link",
+              "value": "={{ $('Code in JavaScript2').item.json.link }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1536,
+        -256
+      ],
+      "id": "6c313af7-fb13-45c2-9bf2-60715e75ecc3",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1n93_bTCxIpHVaMGJKyuQBvZcwP3JRpfh3TdTi5xr_sI/values/Лист1!A:A",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        416,
+        -272
+      ],
+      "id": "1a1565f9-83dc-4b2e-b314-c29ed33cf087",
+      "name": "HTTP Request2",
+      "executeOnce": true,
+      "credentials": {
+        "googleApi": {
+          "id": "AyNYWjdpYiNI4Y8Y",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const sheetsValues = $input.first().json.values || [];\n\nconst publishedUrls = new Set(\n  sheetsValues.slice(1).map(row => row[0]).filter(v => !!v)\n);\n\nconst articles = $('Filter_IT').all().map(i => i.json);\nconst newArticles = articles.filter(a => !publishedUrls.has(a.url || a.link));\n\nif (!newArticles.length) return [];\n\nconst best = newArticles.reduce((top, a) =>\n  (a.score || 0) > (top.score || 0) ? a : top\n);\n\nconst rows = sheetsValues.slice(1).filter(row => row[1] === 'IT').length;\nconst generateImage = rows % 3 === 0;\nreturn [{ json: { ...best, generateImage, debug_rows: rows } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        -272
+      ],
+      "id": "738fb6ec-38ff-4ea8-9066-93b580329a77",
+      "name": "Code in JavaScript3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://polza.ai/api/v1/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"google/gemini-2.5-flash-image\",\n  \"input\": {\n    \"prompt\": \"{{ $json.image_prompt }}\",\n    \"aspect_ratio\": \"16:9\",\n    \"quality\": \"basic\",\n    \"max_images\": 1,\n    \"n\": 1,\n    \"output_format\": \"png\"\n  },\n  \"async\": false\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1088,
+        -352
+      ],
+      "id": "153420de-5fac-4895-af04-55eacbf6e66f",
+      "name": "HTTP Request3",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "YzpV7jmgNC8Mhtvt",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://cointelegraph.com/rss",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -384,
+        48
+      ],
+      "id": "79b895a4-ddf3-4f9a-b621-b9bd3dd65735",
+      "name": "RSS Read2"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "openai/gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "OPENAI/GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Ты редактор новостного Telegram-канала. Отвечай только валидным JSON, без пояснений. Язык ответа: русский, кроме image_prompt.\n\nНовость:\nЗаголовок: {{ $json.title }}\nОписание: {{ $json.contentSnippet }}\n\nВерни JSON:\n{\"score\": 8, \"title\": \"перевод на русский\", \"summary\": \"пересказ 4-5 предложений\", \"link\": \"{{ $json.link }}\", \"image_prompt\": \"конкретная сцена на английском, реалистичный стиль\"}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -160,
+        48
+      ],
+      "id": "82dd9440-d627-43d9-bdbc-8ef442c348c5",
+      "name": "Message a model2",
+      "credentials": {
+        "openAiApi": {
+          "id": "e9bi5ABEfGoCDXzy",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const raw = item.json.output[0].content[0].text;\n  const cleanedRaw = raw\n    .trim()\n    .replace(/^```json\\s*/i, '')\n    .replace(/^```\\s*/i, '')\n    .replace(/\\s*```$/i, '');\n\n  try {\n    const parsed = JSON.parse(cleanedRaw);\n    results.push({\n      json: {\n        score:        Number(parsed.score),\n        summary:      parsed.summary,\n        title:        parsed.title,\n        link:         parsed.link,\n        image_prompt: parsed.image_prompt,\n      }\n    });\n  } catch (error) {\n    results.push({ json: { error: `Failed to parse JSON: ${error.message}` } });\n  }\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        48
+      ],
+      "id": "848d58b8-a986-46bb-acdc-58cee3904325",
+      "name": "Code in JavaScript4"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        1536,
+        -80
+      ],
+      "id": "7b03eec4-875d-434d-a384-a285058f0884",
+      "name": "Limit2"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4157137d-a760-4886-808f-6938785f3447",
+              "name": "post",
+              "value": "={{ \"🔥\" + $('Code in JavaScript5').item.json.title + '\\n\\n' + \"🔐\"  + $('Code in JavaScript5').item.json.summary + '\\n\\n#Крипто #блокчейн' }}",
+              "type": "string"
+            },
+            {
+              "id": "d3d1cee5-fee6-4eac-85ec-ceb64da3b7f8",
+              "name": "Photo_url",
+              "value": "={{ $if($('HTTP Request5').isExecuted, $('HTTP Request5').item.json.data[0].url, $('Code in JavaScript5').item.json.photo_url ?? '') }}",
+              "type": "string"
+            },
+            {
+              "id": "69e0cf1d-1abb-4af7-a525-a170a04fc951",
+              "name": "link",
+              "value": "={{ $('Code in JavaScript4').item.json.link }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1760,
+        64
+      ],
+      "id": "8b493abe-fc65-4338-8bb0-36d91888807c",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1n93_bTCxIpHVaMGJKyuQBvZcwP3JRpfh3TdTi5xr_sI/values/Лист1!A:A",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        640,
+        48
+      ],
+      "id": "05fd3f62-aa3b-430b-95c1-a879d442ad99",
+      "name": "HTTP Request4",
+      "executeOnce": true,
+      "credentials": {
+        "googleApi": {
+          "id": "AyNYWjdpYiNI4Y8Y",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const sheetsValues = $input.first().json.values || [];\n\nconst publishedUrls = new Set(\n  sheetsValues.slice(1).map(row => row[0]).filter(v => !!v)\n);\n\nconst articles = $('Filter_crypto').all().map(i => i.json);\nconst newArticles = articles.filter(a => !publishedUrls.has(a.url || a.link));\n\nif (!newArticles.length) return [];\n\nconst best = newArticles.reduce((top, a) =>\n  (a.score || 0) > (top.score || 0) ? a : top\n);\n\nconst rows = sheetsValues.slice(1).filter(row => row[1] === 'Crypto').length;\nconst generateImage = rows > 0 && rows % 3 === 0;\nconst enclosureUrl = $('RSS Read2').first().json.enclosure?.url || '';\n\nreturn [{ json: { ...best, generateImage, photo_url: enclosureUrl, debug_rows: rows } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        48
+      ],
+      "id": "847c51ab-e841-42a6-896a-0cbc4b81e6d4",
+      "name": "Code in JavaScript5"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://polza.ai/api/v1/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"google/gemini-2.5-flash-image\",\n  \"input\": {\n    \"prompt\": \"{{ $json.image_prompt }}\",\n    \"aspect_ratio\": \"16:9\",\n    \"quality\": \"basic\",\n    \"max_images\": 1,\n    \"n\": 1,\n    \"output_format\": \"png\"\n  },\n  \"async\": false\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1280,
+        -80
+      ],
+      "id": "6f62855a-17d9-4a0f-afb6-72fac15e23f4",
+      "name": "HTTP Request5",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "YzpV7jmgNC8Mhtvt",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "18847050-dfdb-4aee-8546-b11382470bf4",
+              "leftValue": "={{ $json.generateImage }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        864,
+        336
+      ],
+      "id": "1fed90f9-51d5-42f6-8f2d-17d985a76941",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "7595d37e-da22-493b-8ca0-4c5bd8043f0e",
+              "leftValue": "={{ $('Code in JavaScript2').item.json.score }}",
+              "rightValue": 6,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        192,
+        -272
+      ],
+      "id": "2dadd024-75b9-49db-9a25-e97ee99fd24f",
+      "name": "Filter_IT"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "7389d32c-c4d5-44c9-8d4a-bc5b4891a99c",
+              "leftValue": "={{ $json.generateImage }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        864,
+        -272
+      ],
+      "id": "6d371ad5-0df8-41c4-ab7b-5c9af2e1a71f",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f97b1acd-054d-4333-919d-97957592642b",
+              "leftValue": "={{ $json.Photo_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1760,
+        -256
+      ],
+      "id": "423f9c25-39ff-4085-80f4-a3d4b403bfe4",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "chatId": "-1003773861169",
+        "text": "={{ $('Edit Fields1').item.json.post }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2000,
+        -176
+      ],
+      "id": "efc6191e-b06f-41cc-9ba2-85994ba606a8",
+      "name": "Send a text message",
+      "webhookId": "b1ca44a8-33db-4638-9958-2db08fcc30c1",
+      "credentials": {
+        "telegramApi": {
+          "id": "DA1GwNilCuv2sRoY",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "7595d37e-da22-493b-8ca0-4c5bd8043f0e",
+              "leftValue": "={{ $('Code in JavaScript').item.json.score }}",
+              "rightValue": 6,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        192,
+        352
+      ],
+      "id": "8d0aa1cd-e16b-4e32-a9e3-02f203ea33c7",
+      "name": "Filter_AI"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "7595d37e-da22-493b-8ca0-4c5bd8043f0e",
+              "leftValue": "={{ $('Code in JavaScript4').item.json.score }}",
+              "rightValue": 6,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        416,
+        48
+      ],
+      "id": "dfa91cbb-0f93-422e-958a-860a2b1972b7",
+      "name": "Filter_crypto"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "556291ba-012b-402c-9ac8-54fa1d4ebcf1",
+              "leftValue": "={{ $json.generateImage }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1088,
+        48
+      ],
+      "id": "af5802ff-f992-4129-a8c4-0ddc5d876e27",
+      "name": "If3"
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "-1003773861169",
+        "file": "={{ $json.Photo_url }}",
+        "additionalFields": {
+          "caption": "={{ $json.post }}"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1968,
+        288
+      ],
+      "id": "577bca9a-c5b9-44a2-b290-96145860dbf2",
+      "name": "Send a photo message1",
+      "webhookId": "a26a0492-c069-4428-bcc7-d02c441115d6",
+      "credentials": {
+        "telegramApi": {
+          "id": "DA1GwNilCuv2sRoY",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1n93_bTCxIpHVaMGJKyuQBvZcwP3JRpfh3TdTi5xr_sI",
+          "mode": "list",
+          "cachedResultName": "Dublication",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1n93_bTCxIpHVaMGJKyuQBvZcwP3JRpfh3TdTi5xr_sI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Лист1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1n93_bTCxIpHVaMGJKyuQBvZcwP3JRpfh3TdTi5xr_sI/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Link": "={{ $('Edit Fields').item.json.link.trim() }}",
+            "category": "AI"
+          },
+          "matchingColumns": [
+            "Link"
+          ],
+          "schema": [
+            {
+              "id": "Link",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "count",
+              "displayName": "count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2320,
+        400
+      ],
+      "id": "2744e14e-0338-4a47-ab20-25f47ef2be3f",
+      "name": "Append row in sheet1",
+      "credentials": {
+        "googleApi": {
+          "id": "AyNYWjdpYiNI4Y8Y",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "-1003773861169",
+        "file": "={{ $json.Photo_url }}",
+        "additionalFields": {
+          "caption": "={{ $json.post }}"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1984,
+        -368
+      ],
+      "id": "072ff3b0-4cef-454c-a742-cee82336b537",
+      "name": "Send a photo message2",
+      "webhookId": "a26a0492-c069-4428-bcc7-d02c441115d6",
+      "credentials": {
+        "telegramApi": {
+          "id": "DA1GwNilCuv2sRoY",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1n93_bTCxIpHVaMGJKyuQBvZcwP3JRpfh3TdTi5xr_sI",
+          "mode": "list",
+          "cachedResultName": "Dublication",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1n93_bTCxIpHVaMGJKyuQBvZcwP3JRpfh3TdTi5xr_sI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Лист1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1n93_bTCxIpHVaMGJKyuQBvZcwP3JRpfh3TdTi5xr_sI/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Link": "={{ $('Edit Fields1').item.json.link.trim() }}",
+            "category": "IT"
+          },
+          "matchingColumns": [
+            "Link"
+          ],
+          "schema": [
+            {
+              "id": "Link",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "count",
+              "displayName": "count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2208,
+        -272
+      ],
+      "id": "098bcbfa-0e1c-45c8-9cbc-4be819e1c424",
+      "name": "Append row in sheet2",
+      "credentials": {
+        "googleApi": {
+          "id": "AyNYWjdpYiNI4Y8Y",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "-1003773861169",
+        "text": "={{ $('Edit Fields').item.json.post }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1984,
+        496
+      ],
+      "id": "f2fbb2ee-919e-4dab-80ec-97eef89956af",
+      "name": "Send a text message1",
+      "webhookId": "b1ca44a8-33db-4638-9958-2db08fcc30c1",
+      "credentials": {
+        "telegramApi": {
+          "id": "DA1GwNilCuv2sRoY",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e661e3ad-9a36-40b5-bc58-eb80938143d6",
+              "leftValue": "={{ $json.Photo_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1744,
+        352
+      ],
+      "id": "2549a60a-bdd8-4476-a6ba-41bf140b57e6",
+      "name": "If4"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "RSS Read",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS Read1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "RSS Read2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Filter_AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "If4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a photo message": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read1": {
+      "main": [
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Filter_IT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript3": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Limit1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read2": {
+      "main": [
+        [
+          {
+            "node": "Message a model2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model2": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript4": {
+      "main": [
+        [
+          {
+            "node": "Filter_crypto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit2": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request4": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript5": {
+      "main": [
+        [
+          {
+            "node": "If3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request5": {
+      "main": [
+        [
+          {
+            "node": "Limit2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Send a photo message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter_IT": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "Send a photo message2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter_AI": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter_crypto": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If3": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request5",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a photo message1": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a photo message2": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message1": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If4": {
+      "main": [
+        [
+          {
+            "node": "Send a photo message1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "cd6bde51-6ca1-4a4b-a8b4-ff8382d749b6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "cc3e5e4d207b0446650a334658d0652374f3a28bcbb63badf6f50a69870ada5e"
+  },
+  "id": "WXNEteDJYQzYkQmY",
+  "tags": []
+}
